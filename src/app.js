@@ -15,4 +15,11 @@ app.use(express.json({limit: "16kb"}));
 app.use(express.urlencoded({extended: true, limit: "16kb"}));
 app.use(express.static("public"));
 app.use(cookieParser())
+
+// router import
+import userRouter from "./routes/user.routes.js";
+
+// routes declaration -> always middleware is used here (syntax)
+app.use("/api/v1/users", userRouter);
+
 export default app;
