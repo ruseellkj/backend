@@ -19,6 +19,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const { fullName, username, email, password } = req.body;
   console.log("email: ", email);
 
+  // console.log(req.body);
   // Validation of all fields
   if (
     [fullName, username, email, password].some((field) => field?.trim() === "")
@@ -31,7 +32,7 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   // check if the user already exists or not
-  const existedUser = User.findOne({
+  const existedUser = await User.findOne({
     $or: [{ username }, { email }],
   });
 
@@ -39,9 +40,11 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new apiError(409, "User with username or email already exists");
   }
 
+  // console.log(req.files);
+
   // check for the image files
   const avatarLocalPath = req.files?.avatar[0]?.path;
-  const coverImageLocalPath = req.files?.coverimage[0]?.path;
+  const coverImageLocalPath = req.files?.coverImage[0]?.path;
 
   if (!avatarLocalPath) {
     throw new apiError(400, "Avatar file is required");
@@ -51,7 +54,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
   if (!avatar) {
-    throw new ApiError(400, "Avatar file is required");
+    throw new apiError(400, "Avatar file is required");
   }
 
   // create user object
@@ -72,12 +75,9 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new apiError(500, "something went wrong while registering the user");
   }
 
-
-  return res.status(201).json(
-    new apiResponse(200, createdUser, "User registered Successfully")
-  )
-
-
+  return res
+    .status(201)
+    .json(new apiResponse(200, createdUser, "User registered Successfully"));
 });
 
 export { registerUser };
