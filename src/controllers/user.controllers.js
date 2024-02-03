@@ -4,6 +4,24 @@ import { apiError } from "../utils/apiError.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { apiResponse } from "../utils/apiResponse.js";
 
+const generateAccessAndRefreshToken = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new apiError(
+      500,
+      "Something went wrong while generating refresh and access tokens"
+    );
+  }
+};
+
 const registerUser = asyncHandler(async (req, res) => {
   // get user details from frontend
   // validation - not empty
@@ -11,15 +29,13 @@ const registerUser = asyncHandler(async (req, res) => {
   // check for images, check for avatar
   // upload them to cloudinary, avatar
   // create user object - create entry in db
-  // remove password and refresh token field from response
+  // remove password and refresh token fieldx from response
   // check for user creation
   // return res
 
   // these are the steps/algo that we have written and needs to be followed
   const { fullName, username, email, password } = req.body;
-  console.log("email: ", email);
 
-  // console.log(req.body);
   // Validation of all fields
   if (
     [fullName, username, email, password].some((field) => field?.trim() === "")
@@ -80,4 +96,100 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, createdUser, "User registered Successfully"));
 });
 
-export { registerUser };
+const loginUser = asyncHandler(async (req, res) => {
+  // write the algo for the logining for the user
+  // get the details from the user
+  // check the username or email is valid or not
+  // check if the user exists either by username or email
+  // check the password
+  // generate the access and refresh token
+  // send the cookie
+  // send the response to the user or the validation message
+
+  const { email, username, password } = req.body;
+
+  if (!username || !email) {
+    throw new apiError(400, "username or email is not provided");
+  }
+
+  // Validation of the fields
+  if ([username, email, password].some((field) => field?.trim() === "")) {
+    throw new apiError(404, "Fields can't be empty");
+  }
+
+  // check if the user exists or not
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
+  });
+
+  if (!user) {
+    throw new apiError(404, "user doesnt exist");
+  }
+
+  // check password
+  const isPasswordValid = await user.isPasswordCorrect(password);
+
+  if (!isPasswordValid) {
+    throw new apiError(404, "invalid user credentials");
+  }
+
+  // generating access and refresh tokens -> function
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    user._id
+  );
+
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          user: loggedInUser,
+          accessToken,
+          refreshToken,
+        },
+        "User logged In Successfully"
+      )
+    );
+});
+
+const logoutUser = asyncHandler(async (req, res) => {
+  // now here we dont have any thing by which can get access to the user
+  // we will make our own middleware to get the user details and also for Auth then we can //logout for that user
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        refreshToken: undefined, // this removes the field from document
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged Out"));
+});
+
+
+export { registerUser, loginUser, logoutUser };
