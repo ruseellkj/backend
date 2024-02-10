@@ -245,4 +245,124 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  // write the algo for changing the current password to a new one
+  // 1. get the details from the user
+  // 2. if u have fields like new password and confirm new password then add a check
+  // 3. change in the db as well
+
+  const { oldPassword, newPassword } = req.body;
+
+  const user = await User.findById(req.user?._id); // agar user loggedin hai then user find karo
+
+  // while changing password check the oldpsswd is correct or not
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+  if (!isPasswordCorrect) {
+    throw new apiError(400, "Password is incorrect");
+  }
+
+  user.password = newPassword; // isse bas set hota hai save nai
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(200, {}, "Password has been successfully changed");
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  // details for the current user if its loggedIn
+
+  return res.status(200).json(200, req.user, "User data fetched successfully");
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullName, email } = req.body;
+
+  if (!fullName || !email) {
+    throw new apiError(400, "All fields are required");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    { 
+      $set: {
+        fullName,
+        email: email,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new apiResponse(200, user, "Account details updated successfully"));
+});
+
+// now when updating file pls make another file so it becomes easy and reduce network traffic
+const updateAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+
+  if (!avatarLocalPath) {
+    throw new apiError(400, "Avatar file is missing");
+  }
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+
+  if (!avatar.url) {
+    throw new apiError(400, "Error while uploading the avatar");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatar.url,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new apiResponse(200, user, "Avatar image updated successfully"));
+});
+
+const removeAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+
+  if(!avatarLocalPath){
+    throw new apiError(400, "Avatar file is missing ");
+  }
+
+  const user = User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $unset : {
+        avatar : 1,
+      },
+    },
+    { new : true}
+  ).select("-password")
+
+  return res
+  .status(200)
+  .json(200, user, "Avatar image removed successfully ");
+
+});
+
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  changeCurrentPassword,
+  getCurrentUser,
+  updateAccountDetails,
+  updateAvatar,
+  removeAvatar
+};
+
+// NOTE TO SELF:
+// 1. It depends on us( backend engineer ) what to allow and what not to for the user
