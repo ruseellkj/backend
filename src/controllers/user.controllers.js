@@ -1,7 +1,7 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import { User } from "../models/user.models.js";
 import { apiError } from "../utils/apiError.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { deleteFromCloudinary, uploadOnCloudinary, getPublicIdFromUrl } from "../utils/cloudinary.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import jwt from "jsonwebtoken";
 
@@ -73,6 +73,10 @@ const registerUser = asyncHandler(async (req, res) => {
   if (!avatar) {
     throw new apiError(400, "Avatar file is required");
   }
+
+  // console.log(avatar);
+  // console.log(avatar.url);
+  // console.log(avatar.public_id);
 
   // create user object
   const user = await User.create({
@@ -273,7 +277,9 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 const getCurrentUser = asyncHandler(async (req, res) => {
   // details for the current user if its loggedIn
 
-  return res.status(200).json(200, req.user, "User data fetched successfully");
+  return res
+    .status(200)
+    .json(new apiResponse(200, req.user, "User data fetched successfully"));
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
@@ -285,7 +291,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
   const user = await User.findByIdAndUpdate(
     req.user?._id,
-    { 
+    {
       $set: {
         fullName,
         email: email,
@@ -307,11 +313,26 @@ const updateAvatar = asyncHandler(async (req, res) => {
     throw new apiError(400, "Avatar file is missing");
   }
 
+  // before uploading a new avatar image to cloudinary first delete the old one
+  const existingUser = await User.findById(req.user?._id);
+
+  if (existingUser) {
+    const publicId = getPublicIdFromUrl(existingUser.avatar);
+
+    if (publicId) {
+      // Use publicId to delete the previous avatar from Cloudinary
+      await deleteFromCloudinary(publicId);
+    }
+  }
+
+  // now we can upload a new avatar image
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
   if (!avatar.url) {
     throw new apiError(400, "Error while uploading the avatar");
   }
+
+  console.log(avatar.url);
 
   const user = await User.findByIdAndUpdate(
     req.user?._id,
@@ -328,30 +349,6 @@ const updateAvatar = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, user, "Avatar image updated successfully"));
 });
 
-const removeAvatar = asyncHandler(async (req, res) => {
-  const avatarLocalPath = req.file?.path;
-
-  if(!avatarLocalPath){
-    throw new apiError(400, "Avatar file is missing ");
-  }
-
-  const user = User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      $unset : {
-        avatar : 1,
-      },
-    },
-    { new : true}
-  ).select("-password")
-
-  return res
-  .status(200)
-  .json(200, user, "Avatar image removed successfully ");
-
-});
-
-
 export {
   registerUser,
   loginUser,
@@ -361,7 +358,6 @@ export {
   getCurrentUser,
   updateAccountDetails,
   updateAvatar,
-  removeAvatar
 };
 
 // NOTE TO SELF:
