@@ -18,8 +18,10 @@ app.use(cookieParser())
 
 // router import
 import userRouter from "./routes/user.routes.js";
+import tweetRouter from "./routes/tweet.routes.js";
 
 // routes declaration -> always middleware is used here (syntax)
 app.use("/api/v1/users", userRouter);
+app.use("/api/vi/tweets", tweetRouter);
 
 export default app;
