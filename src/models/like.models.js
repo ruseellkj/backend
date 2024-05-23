@@ -10,11 +10,11 @@ const likeSchema = new Schema(
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Comment",
 		},
-		tweet: { // like oin the tweet
+		tweet: { // like on the tweet
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Tweet",
 		},
-		likedBy: { // likeby the which user
+		likedBy: { // liked by the which user
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "User",
 		},
